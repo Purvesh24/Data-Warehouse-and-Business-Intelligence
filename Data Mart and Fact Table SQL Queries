@@ -1,0 +1,150 @@
+Select * from [dbo].[DB_GDP]
+Select * from [dbo].[DB_News_Sentiment]
+Select * from [dbo].[DB_Trade]
+Select * from [dbo].[DB_Wiki]
+Select * from [dbo].[DB_WORKFORCE_DATA]
+
+
+CREATE TABLE [dbo].[DIM_YEAR](
+[YEAR_ID] INT IDENTITY(1,1) PRIMARY KEY,
+[Year] [smallint])
+
+Select * from [dbo].[DIM_YEAR]
+
+Insert into DIM_YEAR(Year)
+SELECT Distinct [dbo].[DB_Trade].year
+FROM [dbo].[DB_Trade] 
+INNER JOIN [dbo].[DB_GDP] ON [dbo].[DB_Trade].year = [dbo].[DB_GDP].Year
+INNER JOIN [dbo].[DB_WORKFORCE_DATA] ON [dbo].[DB_Trade].year = [dbo].[DB_WORKFORCE_DATA].Date
+INNER JOIN [dbo].[DB_Wiki]  ON [dbo].[DB_Trade].year = [dbo].[DB_Wiki].Year
+INNER JOIN [dbo].[DB_News_Sentiment]  ON [dbo].[DB_Trade].year = [dbo].[DB_News_Sentiment].Newsyear ;
+
+Select * from [dbo].[DIM_YEAR]
+
+truncate table [dbo].[DIM_YEAR]
+
+-----------------------------------------------------------------------------------------------
+select * from [dbo].[DB_WORKFORCE_DATA]
+select * from [dbo].[DB_Trade]
+
+
+CREATE TABLE [dbo].[DIM_CATEGORY](
+[Category_ID] INT IDENTITY(1,1) PRIMARY KEY,
+[Category_Name] [varchar](45) NULL,)
+
+select * from DIM_CATEGORY
+
+Insert into DIM_CATEGORY(Category_Name)
+SELECT Distinct [dbo].[DB_Trade].[TradeCtgry]
+FROM ([dbo].[DB_Trade]
+INNER JOIN [dbo].[DB_WORKFORCE_DATA] ON [dbo].[DB_Trade].TradeCtgry = [dbo].[DB_WORKFORCE_DATA].Workforce)
+
+select * from DIM_CATEGORY
+-----------------------------------------------------------------------------------------------
+
+Select * from DIM_SENTIMENTS
+
+CREATE TABLE [dbo].[DIM_SENTIMENTS](
+[Sentiment_ID] INT IDENTITY(1,1) PRIMARY KEY,
+[Newsyear] [smallint] NULL,
+[Anger_Sentiment] [smallint] NULL,
+[Anticipation_Sentiment] [smallint] NULL,
+[Disgust_Sentiment] [smallint] NULL,
+[Fear_Sentiment] [smallint] NULL,
+[Joy_Sentiment] [smallint] NULL,
+[Sadness_Sentiment] [smallint] NULL,
+[Surprise_Sentiment] [smallint] NULL,
+[Trust_Sentiment] [smallint] NULL,
+[Negative_Sentiment] [smallint] NULL,
+[Positive_Sentiment] [smallint] NULL,
+[nrc_Senti] [smallint] NULL,
+[bing_Senti] [smallint] NULL,
+[afinn_Senti] [smallint] NULL,
+[NewsBody_Consol_sentiments] [real] NULL
+) 
+
+Select * from DIM_SENTIMENTS
+
+truncate table [dbo].[DB_News_Sentiment]
+
+Select * from [dbo].[DB_News_Sentiment]
+
+Insert into [DIM_SENTIMENTS](Newsyear,Anger_Sentiment,Anticipation_Sentiment,Disgust_Sentiment,Fear_Sentiment,Joy_Sentiment,Sadness_Sentiment,
+Surprise_Sentiment,Trust_Sentiment,Negative_Sentiment,Positive_Sentiment,nrc_Senti,bing_Senti,afinn_Senti,NewsBody_Consol_sentiments)
+SELECT [Newsyear],[Anger_Sentiment],[Anticipation_Sentiment],[Disgust_Sentiment],[Fear_Sentiment],[Joy_Sentiment],[Sadness_Sentiment],[Surprise_Sentiment],[Trust_Sentiment],[Negative_Sentiment],
+[Positive_Sentiment],[nrc_Senti],[bing_Senti],[afinn_Senti],[NewsBody_Consol_sentiments]
+FROM ([dbo].[DB_News_Sentiment]
+INNER JOIN [dbo].[DIM_YEAR] ON [dbo].[DB_News_Sentiment].Newsyear = [dbo].[DIM_YEAR].Year)
+order by Newsyear
+
+
+INSERT INTO [dbo].[DIM_SENTIMENTS]
+           ([Newsyear]
+           ,[Anger_Sentiment]
+           ,[Anticipation_Sentiment]
+           ,[Disgust_Sentiment]
+           ,[Fear_Sentiment]
+           ,[Joy_Sentiment]
+           ,[Sadness_Sentiment]
+           ,[Surprise_Sentiment]
+           ,[Trust_Sentiment]
+           ,[Negative_Sentiment]
+           ,[Positive_Sentiment]
+           ,[nrc_Senti]
+           ,[bing_Senti]
+           ,[afinn_Senti]
+           ,[NewsBody_Consol_sentiments])
+     VALUES
+           (9999,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+
+
+Select * From DIM_SENTIMENTS
+
+-----------------------------------------------------------------------------------------------
+
+Select * from fact
+
+DROP table fact
+
+CREATE TABLE fact (
+  Fact_id int IDENTITY(1,1) PRIMARY KEY,
+  Year_id int FOREIGN KEY REFERENCES Dim_Year(YEAR_ID),
+  Category_id int FOREIGN KEY REFERENCES DIM_CATEGORY(Category_ID),
+  Sentiment_id int FOREIGN KEY REFERENCES DIM_SENTIMENTS(Sentiment_ID),
+  Export_million_GBP int,
+  Import_million_GBP int,
+  Workforce_Jobs_in_thousands real,
+  GDP_in_Trillion_GBP real,
+  GDP_Growth_in_Percent real,
+  Unemployment_in_Percent real ,
+  Inflation_rate_in_Percent real);
+
+truncate table fact
+
+
+INSERT INTO fact (Year_id,Category_id,
+Sentiment_id,
+Export_million_GBP,Import_million_GBP,
+Workforce_Jobs_in_thousands,
+  GDP_in_Trillion_GBP,
+  GDP_Growth_in_Percent,
+  Unemployment_in_Percent,
+  Inflation_rate_in_Percent)
+
+SELECT DISTINCT [YEAR_ID],[dbo].[DIM_CATEGORY].Category_ID,
+ISNULL([dbo].[DB_News_Sentiment].Sentiment_ID,12),
+[dbo].[DB_Trade].[Export],[dbo].[DB_Trade].[Import],
+[dbo].[DB_WORKFORCE_DATA].[Value],
+ISNULL([dbo].[DB_GDP].[GDP in trillion GBP],0),ISNULL([Growth],0),
+ISNULL([dbo].[DB_Wiki].[Unemployment in Percent],0),ISNULL([dbo].[DB_Wiki].[Inflation rate in Percent],0)
+
+FROM [dbo].[DIM_YEAR]
+inner join [dbo].[DB_Trade] on [dbo].[DB_Trade].[year] = [dbo].[DIM_YEAR].[Year]
+inner join [dbo].[DIM_CATEGORY] on [dbo].[DB_Trade].TradeCtgry=[dbo].[DIM_CATEGORY].Category_Name
+Inner join [dbo].[DB_WORKFORCE_DATA] on [dbo].[DIM_CATEGORY].[Category_Name] = [dbo].[DB_WORKFORCE_DATA].[Workforce] AND [dbo].[DB_WORKFORCE_DATA].[Date]=[dbo].[DIM_YEAR].[Year]
+LEFT join [dbo].[DB_GDP] on [dbo].[DB_GDP].[Year] = [dbo].[DIM_YEAR].[Year] AND [dbo].[DIM_CATEGORY].Category_ID=9
+LEFT join [dbo].[DB_Wiki] on [dbo].[DB_Wiki].[Year]=[dbo].[DIM_YEAR].[Year] AND [dbo].[DIM_CATEGORY].Category_ID=9
+LEFT join [dbo].[DB_News_Sentiment] on [dbo].[DB_News_Sentiment].Newsyear = [dbo].[DIM_YEAR].[Year] AND [dbo].[DIM_CATEGORY].Category_ID=9
+
+
+select * from fact
